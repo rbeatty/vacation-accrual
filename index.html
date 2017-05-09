@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Vacation Accrual Calculator</title>
+	<style>
+		body {
+			margin: 0 auto;
+			padding: 0;
+			font-family: -apple-system, BlinkMacSystemFont, 'avenir next', avenir, 'Segoe UI', 'lucida grande', 'helvetica neue', helvetica, 'Fira Sans', roboto, noto, 'Droid Sans', cantarell, oxygen, ubuntu, 'franklin gothic medium', 'century gothic', 'Liberation Sans', sans-serif;
+			line-height: 1.4;
+			background-color: whitesmoke;
+		}
+		button {
+			padding: .875rem 1.5rem;
+			font-size: 1em;
+			cursor: pointer;
+			color: white;
+			background-color: RebeccaPurple;
+			border: 0;
+			border-radius: .125rem;
+			-moz-appearance: none;
+			-webkit-appearance: none;
+			appearance: none;
+		}
+		button:focus, button:hover {
+			box-shadow: inset 0 0 0 99px rgba(0,0,0,.2);
+		}
+		button[disabled] {
+			cursor: default;
+			opacity: .5;
+		}
+		button[disabled]:focus, button[disabled]:hover {
+			box-shadow: none;
+		}
+		form {
+			padding: 3rem;
+		}
+		fieldset {
+			padding: 0;
+			border: 0;
+		}
+		fieldset .group {
+			display: inline-block;
+			flex-basis: 100%;
+		}
+		fieldset .group + .group {
+			margin-left: 1rem;
+		}
+		h1 {
+			margin-top: 0;
+		}
+		input {
+			display: block;
+			margin-top: .25rem;
+			margin-bottom: 2rem;
+			padding: .5rem .5rem;
+			font-family: inherit;
+			font-size: 1em;
+			width: 12.5rem;
+			height: 2.25rem;
+			border: solid 1px lightgrey;
+			border-radius: .125rem;
+		}
+		input[disabled] {
+			user-select: none;
+			opacity: .5;
+		}
+		label {
+			display: block;
+			font-weight: bold;
+			line-height: 1.2;
+		}
+		label:after {
+			content: ":";
+		}
+		#results {
+			position: fixed;
+			padding: 3rem;
+			top: 0;
+			right: 0;
+			padding-top: 5rem;
+			height: 100vh;
+			background-color: white;
+			box-shadow: 0 0 .5rem rgba(0,0,0,.2);
+			transform: translateX(100%);
+			transition: transform .5s ease;
+		}
+		#results p {
+			display: none;
+			margin-top: 0;
+			margin-bottom: 2rem;
+		}
+		#results span {
+			display: block;
+			font-size: 2em;
+			font-weight: bold;
+			line-height: 1.2;
+			color: RebeccaPurple;
+		}
+	</style>
+</head>
+<body>
+	<form action="#">
+		<h1>Vacation Accrual Calculator</h1>
+
+		<fieldset>
+			<div class="group">
+				<label for="hours-accrue-rate">Accrual rate (weekly)</label>
+				<input id="hours-accrue-rate" step="0.01" type="number" value="2.31">
+			</div>
+			<div class="group">
+				<label for="hours-work-day">Hours in work day</label>
+				<input id="hours-work-day" min="0" max="24" step="0.25" type="number" value="8">
+			</div>
+			<div class="group">
+				<label for="days-work-week">Days in a work week</label>
+				<input id="days-work-week" type="number" value="5" disabled>
+			</div>
+		</fieldset>
+
+		<fieldset>
+			<div class="group">
+				<label for="hours-accrued">Hours accrued to date</label>
+				<input id="hours-accrued" step="0.01" type="number" value="0">
+			</div>
+			<!-- <div class="group">
+				<label for="hours-accrued-date">as of</label>
+				<input id="hours-accrued-date" type="date">
+			</div> -->
+			<div class="group">
+				<label for="hours-booked">Hours already booked</label>
+				<input id="hours-booked" min="0" type="number" value="0">
+			</div>
+		</fieldset>
+
+		<fieldset>
+			<div class="group">
+				<label for="vacation-start">Vacation start date</label>
+				<input id="vacation-start" type="date">
+			</div>
+			<div class="group">
+				<label for="vacation-end">Vacation end date</label>
+				<input id="vacation-end" type="date">
+			</div>
+			<div class="group">
+				<label for="days-unpaid">Unpaid vacation days</label>
+				<input id="days-unpaid" step="0.5" type="number" value="0">
+			</div>
+		</fieldset>
+
+		<button id="calculate-hours" type="submit">Calculate</button>
+	</form>
+	<div id="results">
+		<p id="vacation-hours-before"></p>
+		<p id="vacation-hours-request"></span></p>
+		<p id="vacation-hours-after"></span></p>
+		<p id="to-make-up"></p>
+	</div>
+
+	<script>
+		var accrueRate = document.getElementById('hours-accrue-rate'),
+		hoursWorkDay = document.getElementById('hours-work-day'),
+		hoursAccrued = document.getElementById('hours-accrued'),
+		hoursBooked = document.getElementById('hours-booked'),
+
+		vacationStart = document.getElementById('vacation-start'),
+		vacationEnd = document.getElementById('vacation-end'),
+		daysUnpaid = document.getElementById('days-unpaid'),
+
+		vacationHoursBefore = document.getElementById('vacation-hours-before'),
+		vacationHoursRequest = document.getElementById('vacation-hours-request'),
+		vacationHoursAfter = document.getElementById('vacation-hours-after'),
+		toMakeUp = document.getElementById('to-make-up'),
+
+		hoursBefore = 0,
+		hoursRequest = 0,
+		hoursAfter = 0,
+		hoursToMakeUp = 0,
+
+		date = new Date(),
+		dd = date.getDate(),
+		mm = date.getMonth() + 1,
+		yyyy = date.getFullYear();
+		if (dd < 10) dd='0'+dd;
+		if (mm<10) mm='0'+mm;
+
+		var today = yyyy+'-'+mm+'-'+dd,
+		results = document.getElementById('results');
+
+		// Set min attributes for date inputs
+		vacationStart.min = today;
+		vacationStart.addEventListener('change', function() {
+			vacationEnd.min = vacationStart.value;
+		});
+
+		document.getElementById('calculate-hours').addEventListener('click', function(event) {
+			event.preventDefault();
+			calc();
+		});
+
+		function calc() {
+			if (vacationStart.value) {
+				var workDays = weekdays(Date.parse(today), Date.parse(vacationStart.value)),
+				workWeeks = workDays / 5,
+				toAccrue = workWeeks * accrueRate.value;
+
+				hoursBefore = parseFloat(hoursAccrued.value) + toAccrue;
+				vacationHoursBefore.innerHTML = '<span>' + hoursBefore.toFixed(2) + '</span> vacation hours accrued by <span>' + vacationStart.value + '</span>';
+				vacationHoursBefore.style.display = 'block';
+			} else {
+				vacationHoursBefore.style.display = 'none';
+			}
+
+			if (vacationEnd.value) {
+				var vacationDays = weekdays(Date.parse(vacationStart.value), Date.parse(vacationEnd.value)),
+				offHours = vacationDays * hoursWorkDay.value,
+				vacationHours = offHours - (daysUnpaid.value * hoursWorkDay.value);
+				vacationHoursRequest.innerHTML = '<span>' + vacationHours + '</span> vacation hours to use';
+				vacationHoursRequest.style.display = 'block';
+				hoursAfter = hoursBefore - vacationHours;
+
+				vacationHoursAfter.innerHTML = '<span>' + (hoursAfter - hoursBooked.value).toFixed(2) + '</span> vacation hours after vacation';
+				vacationHoursAfter.style.display = 'block';
+			} else {
+				vacationHoursRequest.style.display = 'none';
+				vacationHoursAfter.style.display = 'none';
+			}
+
+			if (hoursAfter < 0) {
+				var weeksToMakeUp = (hoursAfter - hoursBooked.value) / accrueRate.value;
+				toMakeUp.innerHTML = '<span>' + weeksToMakeUp.toFixed(2) + '</span> weeks to make up negative vacation hours';
+				toMakeUp.style.display = 'block';
+			} else {
+				toMakeUp.style.display = 'none';
+			}
+
+			results.style.transform = 'translateX(0)';
+		}
+
+		function weekdays(start, end) {
+		  // Copy date objects so don't modify originals
+		  var s = new Date(+start);
+		  var e = new Date(+end);
+
+		  // Set time to midday to avoid dalight saving and browser quirks
+		  s.setHours(12,0,0,0);
+		  e.setHours(23,59,59,999);
+
+		  // Get the difference in whole days
+		  var totalDays = Math.round((e - s) / 8.64e7);
+
+		  // Get the difference in whole weeks
+		  var wholeWeeks = totalDays / 7 | 0;
+
+		  // Estimate business days as number of whole weeks * 5
+		  var days = wholeWeeks * 5;
+
+		  // If not even number of weeks, calc remaining weekend days
+		  if (totalDays % 7) {
+		    s.setDate(s.getDate() + wholeWeeks * 7);
+		    while (s < e) {
+		      s.setDate(s.getDate() + 1);
+		      // If day isn't a Sunday or Saturday, add to business days
+		      if (s.getDay() != 0 && s.getDay() != 6) {
+		        ++days;
+		      }
+		    }
+		  }
+		  return days;
+		}
+	</script>
+</body>
+</html>
